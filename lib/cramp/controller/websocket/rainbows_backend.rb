@@ -25,7 +25,7 @@ class Rainbows::HttpResponse
 
     def write_with_magic(socket, rack_response, out = [])
       if socket.websocket?
-        socket.write socket.websocket_upgrade_data
+        socket.write socket.websocket_handshake
         socket.websocket_handshake!
 
         out = nil # To make sure Rainbows! doesn't send back regular HTTP headers

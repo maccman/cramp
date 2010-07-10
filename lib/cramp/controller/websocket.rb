@@ -1,26 +1,20 @@
 module Cramp
   module Controller
-    module WebsocketExtension
+    module WebsocketExtension      
       WEBSOCKET_RECEIVE_CALLBACK = 'websocket.receive_callback'.freeze
 
       def websocket?
         @env['HTTP_CONNECTION'] == 'Upgrade' && @env['HTTP_UPGRADE'] == 'WebSocket'
       end
 
-      def websocket_upgrade_data
-        location  = "ws://#{@env['HTTP_HOST']}#{@env['REQUEST_PATH']}"
-
-        upgrade =  "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-        upgrade << "Upgrade: WebSocket\r\n"
-        upgrade << "Connection: Upgrade\r\n"
-        upgrade << "WebSocket-Origin: #{@env['HTTP_ORIGIN']}\r\n"
-        upgrade << "WebSocket-Location: #{location}\r\n\r\n"
-
-        upgrade
+      def websocket_handshake
+        Websocket::Handshake.call(@env)
       end
     end
 
     class Websocket < Abstract
+      autoload :Handshake, "cramp/controller/websocket/handshake"
+      
       include PeriodicTimer
 
       # TODO : Websockets shouldn't need this in an ideal world

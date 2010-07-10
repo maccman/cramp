@@ -15,7 +15,7 @@ class Thin::Connection
       if @request.parse(data)
         if @request.websocket?
           @response.persistent!
-          @response.websocket_upgrade_data = @request.websocket_upgrade_data
+          @response.websocket_handshake = @request.websocket_handshake
           @serving = :websocket
         end
 
@@ -35,10 +35,10 @@ end
 
 class Thin::Response
   # Headers for sending Websocket upgrade
-  attr_accessor :websocket_upgrade_data
+  attr_accessor :websocket_handshake
 
   def each
-    websocket_upgrade_data ? yield(websocket_upgrade_data) : yield(head)
+    websocket_handshake ? yield(websocket_handshake) : yield(head)
     if @body.is_a?(String)
       yield @body
     else
