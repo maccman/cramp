@@ -49,25 +49,62 @@ module Cramp
       end
 
       def receive_data(data)
-        @buffer ||= MessageBuffer.new
-        @buffer << data
-        messages = @buffer.messages
+        @data ||= ""
+        @data << data
         
-        unless messages
-          finish
-          return
+        error = false
+
+        while !error
+          pointer = 0
+          frame_type = @data[pointer].to_i
+          pointer += 1
+
+          if (frame_type & 0x80) == 0x80
+            # If the high-order bit of the /frame type/ byte is set
+            length = 0
+
+            loop do
+              b = @data[pointer].to_i
+              return false unless b
+              pointer += 1
+              b_v = b & 0x7F
+              length = length * 128 + b_v
+              break unless (b & 0x80) == 0x80
+            end
+
+            if @data[pointer+length-1] == nil
+              # Incomplete data - leave @data to accumulate
+              error = true
+            else
+              # Straight from spec - I'm sure this isn't crazy...
+              # 6. Read /length/ bytes.
+              # 7. Discard the read bytes.
+              @data = @data[(pointer+length)..-1]
+
+              # If the /frame type/ is 0xFF and the /length/ was 0, then close
+              if length == 0
+                finish
+              else
+                error = true
+              end
+            end
+          else
+            # If the high-order bit of the /frame type/ byte is _not_ set
+            msg = @data.slice!(/^\x00([^\xff]*)\xff/)
+            if msg
+              msg.gsub!(/\A\x00|\xff\z/, '')
+              msg.force_encoding('UTF-8') if msg.respond_to?(:force_encoding)
+              receive_message(msg)
+            else
+              error = true
+            end
+          end
         end
-        
-        messages.each do |msg|
-          receive_message(msg)
-        end
+
+        false
       end
       
-      def receive_message(message)
-        if message.respond_to?(:force_encoding)
-          message.force_encoding("UTF-8")
-        end
-        
+      def receive_message(message)        
         self.class.on_data_callbacks.each do |callback|
           EM.next_tick { send(callback, message) }
         end
